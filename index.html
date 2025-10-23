@@ -331,41 +331,46 @@
                     ctx.textBaseline = 'middle';
                     ctx.fillText(couponCode, config.x, config.y);
 
-                    // Konwertuj canvas do PNG i potem do PDF
+                    // Konwertuj canvas do PNG i potem do Uint8Array
                     canvas.toBlob(async (blob) => {
                         try {
-                            const arrayBuffer = await blob.arrayBuffer();
-                            const pdfDoc = await PDFLib.PDFDocument.create();
-                            const pngImage = await pdfDoc.embedPng(arrayBuffer);
+                            const reader = new FileReader();
+                            reader.onload = async () => {
+                                const arrayBuffer = reader.result;
+                                const uint8Array = new Uint8Array(arrayBuffer);
+                                const pdfDoc = await PDFLib.PDFDocument.create();
+                                const pngImage = await pdfDoc.embedPng(uint8Array);
 
-                            // Dodaj stronę z dokładnymi wymiarami obrazu
-                            const page = pdfDoc.addPage([img.width, img.height]);
-                            page.drawImage(pngImage, {
-                                x: 0,
-                                y: 0,
-                                width: img.width,
-                                height: img.height,
-                            });
+                                // Dodaj stronę z dokładnymi wymiarami obrazu
+                                const page = pdfDoc.addPage([img.width, img.height]);
+                                page.drawImage(pngImage, {
+                                    x: 0,
+                                    y: 0,
+                                    width: img.width,
+                                    height: img.height,
+                                });
 
-                            // Zapisz PDF
-                            const pdfBytes = await pdfDoc.save();
-                            const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
-                            const pdfUrl = URL.createObjectURL(pdfBlob);
+                                // Zapisz PDF
+                                const pdfBytes = await pdfDoc.save();
+                                const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+                                const pdfUrl = URL.createObjectURL(pdfBlob);
 
-                            // Pobierz
-                            const link = document.createElement('a');
-                            link.href = pdfUrl;
-                            link.download = `bon_${selectedBon}_${couponCode}.pdf`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                                // Pobierz
+                                const link = document.createElement('a');
+                                link.href = pdfUrl;
+                                link.download = `bon_${selectedBon}_${couponCode}.pdf`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
 
-                            // Czyszczenie
-                            URL.revokeObjectURL(imageUrl);
-                            URL.revokeObjectURL(pdfUrl);
+                                // Czyszczenie
+                                URL.revokeObjectURL(imageUrl);
+                                URL.revokeObjectURL(pdfUrl);
 
-                            showSuccess();
-                            downloadBtn.disabled = false;
+                                showSuccess();
+                                downloadBtn.disabled = false;
+                            };
+                            reader.readAsArrayBuffer(blob);
                         } catch (error) {
                             showError('Błąd przy tworzeniu PDF: ' + error.message);
                             downloadBtn.disabled = false;
