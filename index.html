@@ -331,11 +331,12 @@
                     ctx.textBaseline = 'middle';
                     ctx.fillText(couponCode, config.x, config.y);
 
-                    // Konwertuj canvas do Blob
+                    // Konwertuj canvas do PNG i potem do PDF
                     canvas.toBlob(async (blob) => {
                         try {
+                            const arrayBuffer = await blob.arrayBuffer();
                             const pdfDoc = await PDFLib.PDFDocument.create();
-                            const pngImage = await pdfDoc.embedPng(blob);
+                            const pngImage = await pdfDoc.embedPng(arrayBuffer);
 
                             // Dodaj stronę z dokładnymi wymiarami obrazu
                             const page = pdfDoc.addPage([img.width, img.height]);
