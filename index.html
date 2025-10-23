@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generator Bonów Podarunkowych - Purles</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -119,13 +119,18 @@
             transition: all 0.3s;
         }
 
-        .btn-download:hover {
+        .btn-download:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 20px rgba(78, 50, 97, 0.3);
         }
 
-        .btn-download:active {
+        .btn-download:active:not(:disabled) {
             transform: translateY(0);
+        }
+
+        .btn-download:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .success-message {
@@ -140,6 +145,22 @@
         }
 
         .success-message.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .error-message {
+            display: none;
+            background: #f8d7da;
+            color: #721c24;
+            padding: 14px;
+            border-radius: 6px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .error-message.show {
             display: block;
             animation: slideIn 0.3s ease;
         }
@@ -205,10 +226,14 @@
             <input type="text" id="couponCode" placeholder="np. BON-ABC123XYZ" required>
         </div>
 
-        <button class="btn-download" onclick="generatePDF()">📥 Pobierz PDF</button>
+        <button class="btn-download" id="downloadBtn" onclick="generatePDF()" disabled>📥 Pobierz PDF</button>
 
         <div class="success-message" id="successMessage">
             ✓ PDF został wygenerowany pomyślnie!
+        </div>
+
+        <div class="error-message" id="errorMessage">
+            ✗ Błąd podczas generowania PDF
         </div>
     </div>
 
@@ -220,7 +245,6 @@
 
     <script>
         // ========== KONFIGURACJA BONÓW ==========
-        // ZMIEŃ TUTAJ X i Y jeśli tekst nie jest w dobrym miejscu!
         const BON_CONFIG = {
             100: {
                 image: 'https://raw.githubusercontent.com/purles/generator-bonow/refs/heads/main/Bon%20podarunkowy%20100%20z%C5%82.png',
@@ -251,77 +275,128 @@
         // ========== KONIEC KONFIGURACJI ==========
 
         const FONT_SIZE = 48;
-        const TEXT_COLOR = '#4E3261';
+        const TEXT_COLOR = [78/255, 50/255, 97/255]; // RGB dla #4E3261
 
         let selectedBon = null;
 
         function selectBon(value, element) {
             selectedBon = value;
-            
-            // Zaznacz wybrany button
             document.querySelectorAll('.bon-button').forEach(btn => btn.classList.remove('active'));
             element.classList.add('active');
+            document.getElementById('downloadBtn').disabled = false;
         }
 
-        function generatePDF() {
+        async function generatePDF() {
             const couponCode = document.getElementById('couponCode').value;
+            const downloadBtn = document.getElementById('downloadBtn');
+            const successMsg = document.getElementById('successMessage');
+            const errorMsg = document.getElementById('errorMessage');
 
             if (!selectedBon) {
-                alert('Wybierz wartość bonu!');
+                showError('Wybierz wartość bonu!');
                 return;
             }
 
             if (!couponCode) {
-                alert('Wpisz kod bonu!');
+                showError('Wpisz kod bonu!');
                 return;
             }
 
-            const config = BON_CONFIG[selectedBon];
+            try {
+                downloadBtn.disabled = true;
+                errorMsg.classList.remove('show');
+                successMsg.classList.remove('show');
 
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-                // Stwórz canvas
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
+                const config = BON_CONFIG[selectedBon];
 
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
+                // Załaduj obraz
+                const imageResponse = await fetch(config.image);
+                const imageBlob = await imageResponse.blob();
+                const imageUrl = URL.createObjectURL(imageBlob);
 
-                // Rysuj tekst
-                ctx.fillStyle = TEXT_COLOR;
-                ctx.font = `bold ${FONT_SIZE}px Roboto`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(couponCode, config.x, config.y);
+                // Załaduj obraz do canvas żeby uzyskać wymiary
+                const img = new Image();
+                img.onload = async () => {
+                    // Utwórz canvas i narysuj
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
 
-                // Konwertuj do PDF
-                const options = {
-                    margin: 0,
-                    filename: `bon_${selectedBon}_${couponCode}.pdf`,
-                    image: { type: 'png', quality: 0.98 },
-                    html2canvas: { scale: 1 },
-                    jsPDF: { orientation: 'portrait', unit: 'px', format: [img.width, img.height] }
+                    // Dodaj tekst
+                    ctx.fillStyle = `rgb(${Math.round(TEXT_COLOR[0]*255)}, ${Math.round(TEXT_COLOR[1]*255)}, ${Math.round(TEXT_COLOR[2]*255)})`;
+                    ctx.font = `bold ${FONT_SIZE}px Roboto`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(couponCode, config.x, config.y);
+
+                    // Konwertuj canvas do Blob
+                    canvas.toBlob(async (blob) => {
+                        try {
+                            const pdfDoc = await PDFLib.PDFDocument.create();
+                            const pngImage = await pdfDoc.embedPng(blob);
+
+                            // Dodaj stronę z dokładnymi wymiarami obrazu
+                            const page = pdfDoc.addPage([img.width, img.height]);
+                            page.drawImage(pngImage, {
+                                x: 0,
+                                y: 0,
+                                width: img.width,
+                                height: img.height,
+                            });
+
+                            // Zapisz PDF
+                            const pdfBytes = await pdfDoc.save();
+                            const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+                            const pdfUrl = URL.createObjectURL(pdfBlob);
+
+                            // Pobierz
+                            const link = document.createElement('a');
+                            link.href = pdfUrl;
+                            link.download = `bon_${selectedBon}_${couponCode}.pdf`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+
+                            // Czyszczenie
+                            URL.revokeObjectURL(imageUrl);
+                            URL.revokeObjectURL(pdfUrl);
+
+                            showSuccess();
+                            downloadBtn.disabled = false;
+                        } catch (error) {
+                            showError('Błąd przy tworzeniu PDF: ' + error.message);
+                            downloadBtn.disabled = false;
+                        }
+                    }, 'image/png');
                 };
 
-                html2pdf().set(options).from(canvas).save();
-                showSuccessMsg();
-            };
+                img.onerror = () => {
+                    showError('Błąd ładowania obrazu z GitHub');
+                    URL.revokeObjectURL(imageUrl);
+                    downloadBtn.disabled = false;
+                };
 
-            img.onerror = () => {
-                alert('Błąd ładowania obrazu. Sprawdź czy GitHub URL jest poprawny.');
-            };
-
-            img.src = config.image;
+                img.src = imageUrl;
+            } catch (error) {
+                console.error(error);
+                showError('Błąd: ' + error.message);
+                downloadBtn.disabled = false;
+            }
         }
 
-        function showSuccessMsg() {
-            const successMessage = document.getElementById('successMessage');
-            successMessage.classList.add('show');
-            setTimeout(() => {
-                successMessage.classList.remove('show');
-            }, 3000);
+        function showSuccess() {
+            const msg = document.getElementById('successMessage');
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 3000);
+        }
+
+        function showError(text) {
+            const msg = document.getElementById('errorMessage');
+            msg.textContent = '✗ ' + text;
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 5000);
         }
     </script>
 </body>
