@@ -100,7 +100,7 @@
             color: #4E3261;
             font-weight: 600;
             margin-bottom: 12px;
-            font-size: 14px;
+            font-size: 18px;
         }
 
         input {
@@ -109,7 +109,7 @@
             border: 2px solid #E7E5E6;
             border-radius: 8px;
             font-family: 'Roboto', sans-serif;
-            font-size: 16px;
+            font-size: 18px;
             transition: border-color 0.3s ease;
         }
 
@@ -147,6 +147,31 @@
             background: linear-gradient(135deg, #4E3261 0%, #6B4C7A 100%);
             color: white;
             border-color: #4E3261;
+        }
+
+        .btn-generate {
+            width: 100%;
+            padding: 12px 24px;
+            background: #6B4C7A;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Roboto', sans-serif;
+            margin-bottom: 20px;
+        }
+
+        .btn-generate:hover {
+            background: #4E3261;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(78, 50, 97, 0.3);
+        }
+
+        .btn-generate:active {
+            transform: translateY(0);
         }
 
         .btn-download {
@@ -249,6 +274,14 @@
             .card {
                 padding: 20px;
             }
+
+            label {
+                font-size: 16px;
+            }
+
+            input {
+                font-size: 16px;
+            }
         }
     </style>
 </head>
@@ -272,9 +305,11 @@
                 </div>
             </div>
 
+            <button class="btn-generate" onclick="generateCode()">🎲 Wygeneruj kod</button>
+
             <div class="form-group">
                 <label for="couponCode">Wpisz kod bonu:</label>
-                <input type="text" id="couponCode" placeholder="np. BON-ABC123XYZ" required>
+                <input type="text" id="couponCode" placeholder="Kliknij przycisk &quot;Wygeneruj kod&quot; lub wpisz kod ręcznie." required>
             </div>
 
             <button class="btn-download" id="downloadBtn" onclick="generatePDF()" disabled>📥 Pobierz PDF</button>
@@ -327,6 +362,8 @@
 
         const FONT_SIZE = 48;
         const TEXT_COLOR = [78/255, 50/255, 97/255]; // RGB dla #4E3261
+        const CODE_LENGTH = 7;
+        const CODE_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
         let selectedBon = null;
 
@@ -335,6 +372,14 @@
             document.querySelectorAll('.bon-button').forEach(btn => btn.classList.remove('active'));
             element.classList.add('active');
             document.getElementById('downloadBtn').disabled = false;
+        }
+
+        function generateCode() {
+            let code = '';
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                code += CODE_CHARACTERS.charAt(Math.floor(Math.random() * CODE_CHARACTERS.length));
+            }
+            document.getElementById('couponCode').value = code;
         }
 
         async function generatePDF() {
