@@ -118,6 +118,59 @@
             border-color: #4E3261;
         }
 
+        input.input-error {
+            border-color: #dc3545;
+        }
+
+        input.input-error:focus {
+            border-color: #dc3545;
+        }
+
+        .input-feedback {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            min-height: 20px;
+        }
+
+        .validation-error {
+            color: #dc3545;
+            font-size: 13px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .validation-error.show {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .char-counter {
+            color: #6c757d;
+            font-size: 13px;
+            margin-left: auto;
+        }
+
+        .char-counter.error {
+            color: #dc3545;
+        }
+
+        .char-counter.success {
+            color: #28a745;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .bon-buttons {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -309,7 +362,11 @@
 
             <div class="form-group">
                 <label for="couponCode">Wpisz kod bonu:</label>
-                <input type="text" id="couponCode" placeholder="Kliknij przycisk &quot;Wygeneruj kod&quot; lub wpisz kod ręcznie." required>
+                <input type="text" id="couponCode" placeholder="Kliknij &quot;Wygeneruj kod&quot; lub wpisz minimum 10 znaków" required oninput="validateCode()">
+                <div class="input-feedback">
+                    <span class="validation-error" id="validationError">Kod musi mieć minimum 10 znaków</span>
+                    <span class="char-counter" id="charCounter">0/10 znaków</span>
+                </div>
             </div>
 
             <button class="btn-download" id="downloadBtn" onclick="generatePDF()" disabled>📥 Pobierz PDF</button>
@@ -362,7 +419,8 @@
 
         const FONT_SIZE = 48;
         const TEXT_COLOR = [78/255, 50/255, 97/255]; // RGB dla #4E3261
-        const CODE_LENGTH = 7;
+        const CODE_LENGTH = 10;
+        const MIN_CODE_LENGTH = 10;
         const CODE_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
         let selectedBon = null;
@@ -371,7 +429,7 @@
             selectedBon = value;
             document.querySelectorAll('.bon-button').forEach(btn => btn.classList.remove('active'));
             element.classList.add('active');
-            document.getElementById('downloadBtn').disabled = false;
+            updateDownloadButton();
         }
 
         function generateCode() {
@@ -380,6 +438,53 @@
                 code += CODE_CHARACTERS.charAt(Math.floor(Math.random() * CODE_CHARACTERS.length));
             }
             document.getElementById('couponCode').value = code;
+            validateCode();
+        }
+
+        function validateCode() {
+            const input = document.getElementById('couponCode');
+            const code = input.value;
+            const charCounter = document.getElementById('charCounter');
+            const validationError = document.getElementById('validationError');
+            const currentLength = code.length;
+            
+            // Aktualizuj licznik
+            charCounter.textContent = `${currentLength}/${MIN_CODE_LENGTH} znaków`;
+            
+            // Sprawdź walidację
+            const isValid = currentLength >= MIN_CODE_LENGTH;
+            const isEmpty = currentLength === 0;
+            
+            // Aktualizuj klasy licznika
+            charCounter.classList.remove('error', 'success');
+            if (!isEmpty) {
+                if (isValid) {
+                    charCounter.classList.add('success');
+                } else {
+                    charCounter.classList.add('error');
+                }
+            }
+            
+            // Pokaż/ukryj błąd walidacji (tylko gdy pole nie jest puste)
+            if (!isEmpty && !isValid) {
+                input.classList.add('input-error');
+                validationError.classList.add('show');
+            } else {
+                input.classList.remove('input-error');
+                validationError.classList.remove('show');
+            }
+            
+            updateDownloadButton();
+            
+            return isValid;
+        }
+
+        function updateDownloadButton() {
+            const code = document.getElementById('couponCode').value;
+            const isCodeValid = code.length >= MIN_CODE_LENGTH;
+            const isBonSelected = selectedBon !== null;
+            
+            document.getElementById('downloadBtn').disabled = !(isCodeValid && isBonSelected);
         }
 
         async function generatePDF() {
@@ -393,8 +498,8 @@
                 return;
             }
 
-            if (!couponCode) {
-                showError('Wpisz kod bonu!');
+            if (!validateCode()) {
+                showError('Kod musi mieć minimum 10 znaków!');
                 return;
             }
 
@@ -467,13 +572,13 @@
                     URL.revokeObjectURL(pdfUrl);
 
                     showSuccess();
-                    downloadBtn.disabled = false;
+                    updateDownloadButton();
                 };
 
                 img.onerror = () => {
                     showError('Błąd ładowania obrazu z GitHub');
                     URL.revokeObjectURL(imageUrl);
-                    downloadBtn.disabled = false;
+                    updateDownloadButton();
                 };
 
                 img.crossOrigin = 'anonymous';
@@ -482,7 +587,7 @@
             } catch (error) {
                 console.error(error);
                 showError('Błąd: ' + error.message);
-                downloadBtn.disabled = false;
+                updateDownloadButton();
             }
         }
 
@@ -498,6 +603,11 @@
             msg.classList.add('show');
             setTimeout(() => msg.classList.remove('show'), 5000);
         }
+
+        // Inicjalizacja licznika przy starcie
+        document.addEventListener('DOMContentLoaded', () => {
+            validateCode();
+        });
     </script>
 </body>
 </html>
