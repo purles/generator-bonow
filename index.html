@@ -421,7 +421,9 @@
         const TEXT_COLOR = [78/255, 50/255, 97/255]; // RGB dla #4E3261
         const CODE_LENGTH = 10;
         const MIN_CODE_LENGTH = 10;
-        const CODE_CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        // Bez wieloznacznych znaków (0/O, 1/I/L, B/8, S/5, Z/2) by uniknąć pomyłek
+        // przy odczycie z wydruku oraz błędów OCR przeglądarki przy zaznaczaniu w PDF.
+        const CODE_CHARACTERS = 'ACDEFGHJKMNPQRTUVWXY34679';
 
         let selectedBon = null;
 
